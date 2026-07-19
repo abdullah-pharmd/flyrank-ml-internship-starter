@@ -396,7 +396,7 @@
     <div class="abstract-box">
         <div class="abstract-title">Abstract</div>
         <p class="abstract-text">
-            Content editors and SEO managers face resource constraints when deciding which of thousands of web pages to refresh to recover search traffic. We model this Content Refresh Prioritization problem as a Ranking and Scoring task, training a Random Forest Classifier on a public-safe dataset of 30,000 pages spanning 32 clients. To evaluate generalization honestly, we implement a client-holdout split design to ensure client pages never overlap between training and testing. The model achieves a Precision@50 of 0.540 and ROC-AUC of 0.611, representing a 1.9x improvement in precision over a deterministic baseline rule (Precision@50 = 0.280). This model outputs a prioritized review queue that reduces false positives, helping editorial teams optimize content maintenance budgets.
+            For organic content portfolios managed under the FlyRank SEO platform, deciding which decaying web pages to refresh under finite writing budgets is a key operational challenge. We model this Content Refresh Prioritization problem as a Ranking and Scoring task, training a Random Forest Classifier on a public-safe dataset of 30,000 pages spanning 32 clients to optimize these editorial update decisions. To evaluate generalization honestly, we implement a client-holdout split design ensuring that page data from a client never overlaps between training and validation cohorts. Our model achieves an honest Precision@50 of 0.540 and ROC-AUC of 0.611, representing a 1.9x improvement over FlyRank's traditional deterministic heuristics (Precision@50 = 0.280). This risk-stratification queue effectively triages content maintenance budgets, preventing costly false-positive edits while protecting high-value traffic assets.
         </p>
     </div>
 
@@ -404,7 +404,7 @@
     <section>
         <h2>1. Introduction / Problem Statement</h2>
         <p>
-            In organic Search Engine Optimization (SEO), content portfolios experience natural traffic decay. Shifts in user search intent, changes in search engine ranking algorithms, and competitor updates eventually erode a page's visibility. Search teams frequently struggle with content maintenance prioritization: with inventories containing thousands of URLs, which specific pages should receive editing hours or rewrite budgets?
+            In organic Search Engine Optimization (SEO) portfolios managed by FlyRank, content assets naturally decay over time due to shifts in user search intent, competitor content releases, and Google search algorithm adjustments. While creating new content is critical, maintaining existing content assets via a refresh process is often the most cost-effective way to sustain organic traffic. However, SEO agencies and content teams operate under tight writing hours and budget constraints. With individual client portfolios spanning thousands of unique URLs, editors face a resource-allocation conflict: they must select the highest-opportunity candidates to rewrite without wasting $100–$300 per page refreshing healthy pages.
         </p>
         
         <div class="note-box">
@@ -413,7 +413,7 @@
         </div>
 
         <p>
-            A static heuristic, such as refreshing all pages older than 180 days, is too crude. Our starter dataset reveals that only <strong>0.58%</strong> of pages are older than 180 days, yet <strong>54.21%</strong> of pages are declining. In addition, search metrics have complex, non-linear relationships; click-through rate (CTR) is highly dependent on a page's average position tier. A flat threshold fails to separate expected CTR decay from genuine underperformance. An ML approach is required to automatically learn these interaction boundaries.
+            To address this, FlyRank's legacy platform utilized simple rule-based flags (e.g., highlighting pages older than 180 days that fall below a flat CTR threshold). However, these static heuristics are too crude. In our production starter dataset, only <strong>0.58%</strong> of pages are older than 180 days, yet <strong>54.21%</strong> are actively declining in traffic. Relying solely on age-based heuristics fails to capture 99.4% of decaying pages. Furthermore, click-through rate (CTR) decays non-linearly across position tiers (a page ranking #1 with a 5% CTR is severely underperforming, whereas a page ranking #11 with a 0.5% CTR is performing as expected). Flat thresholds trigger high rates of false positives on healthy lower-ranked pages and miss high-volume decay on page one. A machine learning classification model is required to resolve these non-linear boundaries and rank pages by their true risk of traffic decline.
         </p>
         <p>
             A wrong recommendation carries direct operational costs:
