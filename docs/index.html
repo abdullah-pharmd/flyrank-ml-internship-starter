@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Risk-Stratifying Content Maintenance: Prioritizing SEO Refreshes via ML on Production Search Data</title>
+    <meta name="description" content="Research paper from the FlyRank ML Internship demonstrating a Random Forest model for SEO content refresh prioritization, achieving a 1.9x lift over baseline heuristics.">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&family=Outfit:wght@300;400;500;600;700;800&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+        :root {
+            --font-serif: 'Lora', Georgia, serif;
+            --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --font-mono: 'Space Mono', monospace;
+            
+            --color-bg: #fcfbf9;      /* Scholarly warm-beige background */
+            --color-text: #2b2623;    /* Soft readable dark text */
+            --color-muted: #615a55;   /* Muted text */
+            --color-border: #e8e4de;  /* Soft border line */
+            
+            --color-accent: #6f4e7c;       /* Muted brand purple */
+            --color-accent-light: #f6f1f8; /* Soft purple tint */
+            --color-teal: #426b69;         /* Scholarly teal */
+            --color-teal-light: #eef6f5;   /* Soft teal tint */
+            
+            --color-card-bg: #ffffff;
+            --max-width: 800px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            font-family: var(--font-serif);
+            font-size: 18px;
+            line-height: 1.65;
+            padding: 2rem 1.5rem;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        header {
+            max-width: var(--max-width);
+            margin: 0 auto 3rem auto;
+            border-bottom: 2px solid var(--color-border);
+            padding-bottom: 2rem;
+        }
+
+        .journal-tag {
+            font-family: var(--font-sans);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--color-accent);
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-family: var(--font-sans);
+            font-size: 2.5rem;
+            font-weight: 800;
+            line-height: 1.2;
+            color: #1a1614;
+            margin-bottom: 1.5rem;
+        }
+
+        .meta-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem 3rem;
+            font-family: var(--font-sans);
+            font-size: 0.95rem;
+            color: var(--color-muted);
+        }
+
+        .meta-item strong {
+            color: var(--color-text);
+            display: block;
+            font-weight: 600;
+        }
+
+        .meta-item a {
+            color: var(--color-teal);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--color-teal);
+            transition: all 0.2s ease;
+        }
+
+        .meta-item a:hover {
+            color: var(--color-accent);
+            border-bottom-color: var(--color-accent);
+        }
+
+        main {
+            max-width: var(--max-width);
+            margin: 0 auto;
+        }
+
+        /* Abstract Styling */
+        .abstract-box {
+            background-color: var(--color-accent-light);
+            border-left: 4px solid var(--color-accent);
+            padding: 1.5rem 2rem;
+            margin-bottom: 3rem;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .abstract-title {
+            font-family: var(--font-sans);
+            font-weight: 700;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--color-accent);
+            margin-bottom: 0.5rem;
+        }
+
+        .abstract-text {
+            font-style: italic;
+            font-size: 1.05rem;
+            color: #3b3531;
+        }
+
+        /* Heading elements */
+        h2 {
+            font-family: var(--font-sans);
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #1a1614;
+            margin: 3rem 0 1.25rem 0;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        h3 {
+            font-family: var(--font-sans);
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #24201e;
+            margin: 2rem 0 1rem 0;
+        }
+
+        p {
+            margin-bottom: 1.5rem;
+            text-align: justify;
+        }
+
+        /* KPI Cards Grid */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .kpi-card {
+            background-color: var(--color-card-bg);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.04);
+        }
+
+        .kpi-title {
+            font-family: var(--font-sans);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--color-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 0.5rem;
+        }
+
+        .kpi-val {
+            font-family: var(--font-sans);
+            font-size: 2.25rem;
+            font-weight: 800;
+            color: var(--color-teal);
+            line-height: 1;
+            margin-bottom: 0.25rem;
+        }
+
+        .kpi-comparison {
+            font-family: var(--font-sans);
+            font-size: 0.8rem;
+            color: var(--color-muted);
+        }
+
+        .kpi-comparison span.highlight {
+            color: var(--color-accent);
+            font-weight: 600;
+        }
+
+        /* Custom alert/notes */
+        .note-box {
+            background-color: var(--color-teal-light);
+            border-left: 4px solid var(--color-teal);
+            padding: 1.25rem 1.75rem;
+            margin: 2rem 0;
+            border-radius: 0 6px 6px 0;
+            font-size: 0.95rem;
+            color: #313a39;
+        }
+
+        .note-title {
+            font-family: var(--font-sans);
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            color: var(--color-teal);
+            letter-spacing: 0.08em;
+            margin-bottom: 0.25rem;
+        }
+
+        /* Tables styling */
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            margin: 2rem 0;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            background-color: var(--color-card-bg);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: var(--font-sans);
+            font-size: 0.9rem;
+            text-align: left;
+        }
+
+        th, td {
+            padding: 0.85rem 1.25rem;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        th {
+            background-color: #f7f6f4;
+            font-weight: 600;
+            color: var(--color-text);
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background-color: #faf9f6;
+        }
+
+        /* Code block styles */
+        code {
+            font-family: var(--font-mono);
+            font-size: 0.85em;
+            background-color: #f5f2eb;
+            padding: 0.15rem 0.35rem;
+            border-radius: 4px;
+            color: #a12d2d;
+        }
+
+        /* Figures layout */
+        figure {
+            margin: 2.5rem 0;
+            border: 1px solid var(--color-border);
+            background-color: var(--color-card-bg);
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.01);
+        }
+
+        .fig-img-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 1rem;
+            background-color: #fcfbf9;
+            padding: 0.5rem;
+            border-radius: 4px;
+            border: 1px solid #f2efea;
+        }
+
+        figure img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+        }
+
+        figcaption {
+            font-size: 0.85rem;
+            color: var(--color-muted);
+            line-height: 1.5;
+        }
+
+        figcaption strong {
+            color: var(--color-text);
+            font-family: var(--font-sans);
+        }
+
+        /* Footer styling */
+        footer {
+            max-width: var(--max-width);
+            margin: 5rem auto 2rem auto;
+            border-top: 1px solid var(--color-border);
+            padding-top: 2rem;
+            font-family: var(--font-sans);
+            font-size: 0.85rem;
+            color: var(--color-muted);
+            text-align: center;
+        }
+
+        footer a {
+            color: var(--color-teal);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive lists */
+        ul, ol {
+            margin-left: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                font-size: 16px;
+                padding: 1.5rem 1rem;
+            }
+            h1 {
+                font-size: 1.85rem;
+            }
+            h2 {
+                font-size: 1.45rem;
+            }
+            .kpi-grid {
+                grid-template-columns: 1fr;
+            }
+            figure {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="journal-tag">FlyRank Machine Learning Internship Capstone · Research Paper</div>
+    <h1>Risk-Stratifying Content Maintenance: Prioritizing SEO Content Refreshes via Machine Learning on Production Search Data</h1>
+    <div class="meta-container">
+        <div class="meta-item">
+            <strong>Author</strong>
+            Muhammad Abdullah Khan <br>
+            <span style="font-size: 0.85rem; font-style: italic;">PharmD Candidate (GCUF)</span>
+        </div>
+        <div class="meta-item">
+            <strong>Project Repository</strong>
+            <a href="https://github.com/abdullah-pharmd/flyrank-ml-internship-abdullah" target="_blank">abdullah-pharmd/flyrank-ml-internship-abdullah</a>
+        </div>
+        <div class="meta-item">
+            <strong>Interactive Notebook</strong>
+            <a href="https://colab.research.google.com/github/abdullah-pharmd/flyrank-ml-internship-starter/blob/main/work/notebooks/capstone.ipynb" target="_blank">Open in Colab</a>
+        </div>
+        <div class="meta-item">
+            <strong>Published Date</strong>
+            July 19, 2026
+        </div>
+    </div>
+</header>
+
+<main>
+
+    <!-- ABSTRACT -->
+    <div class="abstract-box">
+        <div class="abstract-title">Abstract</div>
+        <p class="abstract-text">
+            Content editors and SEO managers face resource constraints when deciding which of thousands of web pages to refresh to recover search traffic. We model this Content Refresh Prioritization problem as a Ranking and Scoring task, training a Random Forest Classifier on a public-safe dataset of 30,000 pages spanning 32 clients. To evaluate generalization honestly, we implement a client-holdout split design to ensure client pages never overlap between training and testing. The model achieves a Precision@50 of 0.540 and ROC-AUC of 0.611, representing a 1.9x improvement in precision over a deterministic baseline rule (Precision@50 = 0.280). This model outputs a prioritized review queue that reduces false positives, helping editorial teams optimize content maintenance budgets.
+        </p>
+    </div>
+
+    <!-- INTRODUCTION -->
+    <section>
+        <h2>1. Introduction / Problem Statement</h2>
+        <p>
+            In organic Search Engine Optimization (SEO), content portfolios experience natural traffic decay. Shifts in user search intent, changes in search engine ranking algorithms, and competitor updates eventually erode a page's visibility. Search teams frequently struggle with content maintenance prioritization: with inventories containing thousands of URLs, which specific pages should receive editing hours or rewrite budgets?
+        </p>
+        
+        <div class="note-box">
+            <div class="note-title">Clinical Analogy & PharmD Context</div>
+            In clinical settings, medical practitioners utilize <strong>risk-stratification protocols</strong> to triage patients. Because clinical hours and budgets are strictly capped, doctors cannot run diagnostics on all patients. Instead, clinical decision-support systems aggregate patient variables (age, medication lists, renal clearances, and vital trends) to highlight patients at high risk of drug-induced adverse events. Applying this concept to search data, we treat web pages as patients and search visibility metrics as vitals, ranking pages to triage editorial resources where they prevent traffic losses most efficiently.
+        </div>
+
+        <p>
+            A static heuristic, such as refreshing all pages older than 180 days, is too crude. Our starter dataset reveals that only <strong>0.58%</strong> of pages are older than 180 days, yet <strong>54.21%</strong> of pages are declining. In addition, search metrics have complex, non-linear relationships; click-through rate (CTR) is highly dependent on a page's average position tier. A flat threshold fails to separate expected CTR decay from genuine underperformance. An ML approach is required to automatically learn these interaction boundaries.
+        </p>
+        <p>
+            A wrong recommendation carries direct operational costs:
+        </p>
+        <ul>
+            <li><strong>False Positives (Type I Error)</strong>: Wasted writer hours and content budgets (typically $100-$300 per page) spent rewriting healthy articles, with the added risk of disrupting stable search indexes.</li>
+            <li><strong>False Negatives (Type II Error)</strong>: Unnoticed, compounding traffic erosion that harms organic lead generation and client revenue.</li>
+        </ul>
+    </section>
+
+    <!-- DATA -->
+    <section>
+        <h2>2. Data & Safety</h2>
+        <p>
+            We utilized the gated Hugging Face warehouse fact table: <code>fact_content_daily_performance</code> (specifically the mid-panel partition <strong>March 2026</strong>, spanning <code>2026-03-01</code> to <code>2026-03-31</code>). This release contains <strong>9,841,378 rows</strong> of daily data across <strong>55 clients</strong> and <strong>331,437 content items</strong>. GA4 engagement tracking is available for <strong>4.21%</strong> of rows.
+        </p>
+        <p>
+            For modeling, the time panel was divided relative to the prediction boundary:
+        </p>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Window</th>
+                        <th>Calendar Range</th>
+                        <th>Purpose</th>
+                        <th>Associated Features</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Early Feature Window</strong></td>
+                        <td>March 1–20, 2026</td>
+                        <td>Feature aggregation</td>
+                        <td><code>imp_early</code>, <code>clk_early</code>, <code>pos_early</code>, <code>ctr_early</code>, <code>ses_early</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Late Outcome Window</strong></td>
+                        <td>March 21–31, 2026</td>
+                        <td>Label generation</td>
+                        <td>Daily average impressions (for target computation)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <h3>Exclusion and Public Safety Boundary</h3>
+        <p>
+            To maintain strict public safety, all client and content identifiers are pseudonymous hashes. No customer names, brand-identifying domains, raw search query strings, or physical URLs are present.
+        </p>
+        <p>
+            We deliberately exclude outcome-period visibility metrics (e.g. <code>imp_late</code>) and pre-calculated trend features (like <code>trend_direction</code> or <code>trend_pct</code> in the GSC data slice) from our feature space. Including them represents direct **target leakage**, which artificially inflates model training metrics while rendering the model completely non-functional when deployed in production.
+        </p>
+    </section>
+
+    <!-- METHODOLOGY -->
+    <section>
+        <h2>3. Methodology</h2>
+        <p>
+            We frame content refresh prioritization as a **Ranking and Scoring** task. Instead of outputting a simple binary "yes/no" tag, the model outputs a continuous decline-risk probability. Pages are sorted by this risk score, allowing editors to review the highest-opportunity candidates first.
+        </p>
+        
+        <h3>Model Architecture & Features</h3>
+        <p>
+            We select a <strong>Random Forest Classifier</strong> (100 estimators, max_depth=8). Tree-based ensembles are naturally robust to missing data and skewed distributions, and they capture non-linear feature interactions (such as the expected CTR curve across position tiers) without requiring extensive manual feature engineering.
+        </p>
+        <p>
+            The feature vector is composed of nine safe variables aggregated over the early feature window:
+        </p>
+        <ul>
+            <li><strong>GSC Performance</strong>: Early impressions, early clicks, CTR, and average position (cleaned by mapping 0 positions to 100).</li>
+            <li><strong>Content Metadata</strong>: Word count and content age (days since last update).</li>
+            <li><strong>GA4 User Engagement</strong>: Total sessions, average scroll depth, and engaged session rate. Missing GA4 columns are set to 0.</li>
+        </ul>
+
+        <h3>Validation Split Design</h3>
+        <p>
+            To evaluate model generalization honestly, we implement a <strong>Client Holdout Split</strong> using <code>GroupShuffleSplit</code> on the <code>client_id</code> attribute. In production, the model is applied to entirely new client sites. A standard random split would mix pages from the same client into both training and validation sets. The model would memorize client-specific traits (such as distinct keyword volume bands or internal page structures), resulting in <strong>optimism bias</strong>. Holding out entire clients ensures we evaluate our model on unseen websites.
+        </p>
+    </section>
+
+    <!-- RESULTS -->
+    <section>
+        <h2>4. Results & Analysis</h2>
+        
+        <h3>Performance Summary</h3>
+        <p>
+            The Random Forest model was evaluated against our deterministic baseline rule on the holdout test set (comprising 8 clients and 7,115 rows).
+        </p>
+
+        <!-- KPI Cards Grid -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-title">Base Rate of Decline</div>
+                <div class="kpi-val" style="color: #615a55;">51.7%</div>
+                <div class="kpi-comparison">Proportion of declining pages in test split</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">Baseline Precision@50</div>
+                <div class="kpi-val" style="color: #c95d5d;">0.280</div>
+                <div class="kpi-comparison">Human heuristic rule accuracy</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">Model Precision@50</div>
+                <div class="kpi-val">0.540</div>
+                <div class="kpi-comparison"><span class="highlight">1.9x (≈93%) improvement</span> over baseline</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">Model ROC-AUC</div>
+                <div class="kpi-val">0.611</div>
+                <div class="kpi-comparison">Baseline rule ROC-AUC was 0.505</div>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Evaluation Split</th>
+                        <th>Method</th>
+                        <th>Precision@50</th>
+                        <th>ROC-AUC</th>
+                        <th>Optimism Bias Lift</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td rowspan="2" style="background-color: #faf9f6; font-weight: 600;">Random Split (leakage risk)</td>
+                        <td>Baseline Rule</td>
+                        <td>0.360</td>
+                        <td>0.528</td>
+                        <td rowspan="2" style="color: #c95d5d; font-weight: 600; text-align: center;">+0.420 in P@50<br><span style="font-size:0.75rem; font-weight: normal;">(Memorized client profiles)</span></td>
+                    </tr>
+                    <tr>
+                        <td>Random Forest (ML)</td>
+                        <td><strong>0.960</strong></td>
+                        <td><strong>0.743</strong></td>
+                    </tr>
+                    <tr>
+                        <td rowspan="2" style="background-color: #eef6f5; font-weight: 600;">Client Holdout Split (honest)</td>
+                        <td>Baseline Rule</td>
+                        <td>0.280</td>
+                        <td>0.505</td>
+                        <td rowspan="2" style="color: var(--color-teal); font-weight: 600; text-align: center;">0.000 (No Leakage)<br><span style="font-size:0.75rem; font-weight: normal;">(True generalization)</span></td>
+                    </tr>
+                    <tr>
+                        <td>Random Forest (ML)</td>
+                        <td><strong>0.540</strong></td>
+                        <td><strong>0.611</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <p>
+            Under a random split, the model scores a seemingly perfect 0.960 Precision@50. However, once client leakage is eliminated through our client-holdout split, the performance drops to an honest <strong>0.540</strong>. This represents a 42-point drop and shows that our model is a helpful triage tool, not a perfect oracle. Importantly, it still out-performs the human baseline rule (0.280 Precision@50) by 93%.
+        </p>
+
+        <!-- Figure 1 -->
+        <figure>
+            <div class="fig-img-container">
+                <img src="figures/feature_importances.png" alt="Random Forest Feature Importances">
+            </div>
+            <figcaption>
+                <strong>Figure 1: Feature Importances.</strong> The model relies heavily on search volume exposure (<code>impressions_90d</code> = 30.9%) and average rank position (<code>avg_position</code> = 23.1%) to determine decline risk, suggesting that a page's immediate visibility features carry higher risk indicators than its raw freshness age (<code>days_since_last_update</code> = 9.0%).
+            </figcaption>
+        </figure>
+
+        <!-- Figure 2 -->
+        <figure>
+            <div class="fig-img-container">
+                <img src="figures/precision_at_k_curve.png" alt="Precision@K Curve">
+            </div>
+            <figcaption>
+                <strong>Figure 2: Precision@K Curve on Holdout Test Set.</strong> This curve plots precision across varying queue depths (K = 5 to 100). The model's Precision@50 of 0.540 stays consistently above both the baseline rule (0.280) and the random base rate (0.517), confirming its robustness as a prioritization queue.
+            </figcaption>
+        </figure>
+
+        <h3>Error Analysis & Insights</h3>
+        <p>
+            An inspection of individual model errors revealed two patterns:
+        </p>
+        <ul>
+            <li><strong>Useful False Positive (Preventative Care)</strong>: Page <code>content_50dcd3f8c85c</code> had 2,294 impressions, ranked at average position 10.9 (on the edge of page one), and was updated 114 days ago. The model predicted a very high risk of decline (0.889 prob) due to page-one decay risk, but the page traffic held stable in the monitoring window. In practice, this is a highly valuable false positive: it identifies a high-volume, stale page that sits on the edge of page one, prompting a preventative refresh before it actually slips.</li>
+            <li><strong>Informational CTR Variance</strong>: The model occasionally over-flags highly visible informational pages because they exhibit lower click-through rates. In search results, queries with high informational intent naturally have low click-through rates because Google surfaces Answer Boxes. In the future, we should include content intent categories as a feature.</li>
+        </ul>
+    </section>
+
+    <!-- LIMITATIONS -->
+    <section>
+        <h2>5. Limitations & Honest Framing</h2>
+        <p>
+            To maintain scientific honesty, the following constraints must be noted when applying this model:
+        </p>
+        <ol>
+            <li><strong>No Causal Causal Claims</strong>: Because this study utilizes observational search console logs, we cannot claim that publishing updates <em>causes</em> traffic recovery, nor that a page's age <em>causes</em> its decay. The model is an observational prioritization tool.</li>
+            <li><strong>Cold Start Client Thresholds</strong>: The model is trained on clients with at least 90 days of GSC records. Newly onboarded clients lack the window histories to populate GSC features, and the baseline rule must be used until GSC data accumulates.</li>
+            <li><strong>High-Frequency / News Niches</strong>: For blogs targeting news or rapid industry shifts, page age behaves as a lagging indicator rather than a structural signal. The model will over-flag these pages.</li>
+            <li><strong>Low-Volume Search Noise</strong>: Pages with fewer than 50 impressions in GSC are highly volatile. Minor fluctuations appear as major percentage changes. Our model's predictions on these pages represent noise; low-volume rows should be pre-filtered from the queue.</li>
+        </ol>
+    </section>
+
+    <!-- Playbook RECOMMENDATIONS -->
+    <section>
+        <h2>6. Ranked Playbook Recommendations</h2>
+        <p>
+            We translate the model's continuous risk probabilities into an editorial action playbook. The priority queue sorts pages by their decline probability, and reason codes are attached based on specific thresholds:
+        </p>
+        
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Recommended Action</th>
+                        <th>Reason Code</th>
+                        <th>Model Risk Trigger</th>
+                        <th>Action Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td><code>refresh_and_review_ctr</code></td>
+                        <td><code>low_ctr_visible_page</code></td>
+                        <td>Impressions &ge; 500 AND CTR &lt; 0.5% AND Position 1–20</td>
+                        <td>Review search appearance, rewrite titles/meta-tags to match intent.</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td><code>refresh</code></td>
+                        <td><code>stale_visible_page</code></td>
+                        <td>Days since last update &ge; 180 AND Impressions &ge; 500</td>
+                        <td>Update stats, add current context, and re-publish with new timestamp.</td>
+                    </tr>
+                    <tr>
+                        <td>3</td>
+                        <td><code>expand_and_refresh</code></td>
+                        <td><code>thin_visible_page</code></td>
+                        <td>Word count &lt; 1,200 AND Impressions &ge; 250</td>
+                        <td>Add sub-sections, expand thin content, and resolve keyword gaps.</td>
+                    </tr>
+                    <tr>
+                        <td>4</td>
+                        <td><code>refresh</code></td>
+                        <td><code>page_one_decay_risk</code></td>
+                        <td>Average position &le; 10 AND Content age &ge; 180 days</td>
+                        <td>Review competitors in top spots and update to prevent slipping off page one.</td>
+                    </tr>
+                    <tr>
+                        <td>5</td>
+                        <td><code>monitor</code></td>
+                        <td><code>general_refresh_review</code></td>
+                        <td>Default monitor category</td>
+                        <td>Maintain current state and re-evaluate in next 30-day cycle.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>Operational Guardrails (The No-Go List)</h3>
+        <p>
+            To maintain safety, three rules must be strictly enforced:
+        </p>
+        <ul>
+            <li><strong>Do not automate content publishing</strong>: Changing content is a high-risk activity that can break rankings. A human editor must review and approve all rewrites.</li>
+            <li><strong>Avoid batch-refreshing entire queues</strong>: Updating 50 pages simultaneously makes it impossible to isolate which changes succeeded. Refresh content in small cohorts.</li>
+            <li><strong>Never delete pages solely because of low CTR</strong>: Low-CTR pages may serve navigational, legal, or brand-building roles.</li>
+        </ul>
+    </section>
+
+    <!-- REPRODUCIBILITY -->
+    <section>
+        <h2>7. Reproducibility</h2>
+        <p>
+            All datasets and code are checked into the Git repository. To run this project from scratch:
+        </p>
+        <ol>
+            <li>Clone the repository: <br>
+                <code>git clone https://github.com/abdullah-pharmd/flyrank-ml-internship-abdullah.git</code>
+            </li>
+            <li>Create and activate a virtual environment: <br>
+                <code>python -m venv .venv</code> <br>
+                <code>source .venv/bin/activate</code> (or <code>.venv\Scripts\activate</code> on Windows)
+            </li>
+            <li>Install dependencies: <br>
+                <code>pip install -r requirements.txt</code>
+            </li>
+            <li>Open and run the capstone notebook: <br>
+                <code>work/notebooks/capstone.ipynb</code>
+            </li>
+        </ol>
+        <p>
+            The environment uses <code>scikit-learn 1.4+</code>, <code>pandas 2.2+</code>, and <code>numpy 1.26+</code>. The random seed is fixed to <code>42</code> across all splits and model training.
+        </p>
+    </section>
+
+</main>
+
+<footer>
+    <p>
+        Built on the <a href="https://flyrank.ai" target="_blank">FlyRank ML Internship dataset</a>.
+    </p>
+    <p style="margin-top: 0.5rem; font-size: 0.75rem; color: #a19a95;">
+        Muhammad Abdullah Khan · Computational Pharmacology & Safety Research · GCUF 2026
+    </p>
+</footer>
+
+</body>
+</html>
